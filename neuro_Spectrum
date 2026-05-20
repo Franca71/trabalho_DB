@@ -1,0 +1,157 @@
+CREATE TABLE paciente (
+    id              SERIAL PRIMARY KEY,
+    nome            VARCHAR(100)    NOT NULL,
+    data_nascimento DATE            NOT NULL,
+    cpf             VARCHAR(14)     NOT NULL UNIQUE,
+    telefone        VARCHAR(20),
+    email           VARCHAR(100),
+    endereco        VARCHAR(200),
+    convenio        VARCHAR(100),
+    num_convenio    VARCHAR(50),
+    data_cadastro   TIMESTAMP       DEFAULT NOW()
+);
+
+CREATE TABLE profissional (
+    id              SERIAL PRIMARY KEY,
+    nome            VARCHAR(100)    NOT NULL,
+    tipo            VARCHAR(50)     NOT NULL,
+    crm_crp         VARCHAR(30)     NOT NULL UNIQUE,
+    especialidade   VARCHAR(100),
+    telefone        VARCHAR(20),
+    email           VARCHAR(100),
+    ativo           BOOLEAN         DEFAULT TRUE
+);
+
+CREATE TABLE disponibilidade (
+    id                  SERIAL PRIMARY KEY,
+    profissional_id     INT             NOT NULL,
+    dia_semana          VARCHAR(20)     NOT NULL,
+    hora_inicio         TIME            NOT NULL,
+    hora_fim            TIME            NOT NULL,
+    ativo               BOOLEAN         DEFAULT TRUE,
+    FOREIGN KEY (profissional_id)
+        REFERENCES profissional(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE
+);
+
+CREATE TABLE consulta (
+    id                  SERIAL PRIMARY KEY,
+    paciente_id         INT             NOT NULL,
+    profissional_id     INT             NOT NULL,
+    data_hora           TIMESTAMP       NOT NULL,
+    duracao_min         INT,
+    status              VARCHAR(30)     DEFAULT 'agendada',
+    modalidade          VARCHAR(30),
+    observacoes         TEXT,
+    criado_em           TIMESTAMP       DEFAULT NOW(),
+    FOREIGN KEY (paciente_id)
+        REFERENCES paciente(id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+    FOREIGN KEY (profissional_id)
+        REFERENCES profissional(id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+);
+
+CREATE TABLE prontuario (
+    id                  SERIAL PRIMARY KEY,
+    paciente_id         INT             NOT NULL,
+    profissional_id     INT             NOT NULL,
+    consulta_id         INT,
+    data_registro       TIMESTAMP       DEFAULT NOW(),
+    queixa_principal    TEXT,
+    avaliacao           TEXT,
+    plano_tratamento    TEXT,
+    prescricao          TEXT,
+    FOREIGN KEY (paciente_id)
+        REFERENCES paciente(id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+    FOREIGN KEY (profissional_id)
+        REFERENCES profissional(id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE,
+    FOREIGN KEY (consulta_id)
+        REFERENCES consulta(id)
+        ON DELETE SET NULL
+        ON UPDATE CASCADE
+);
+
+CREATE TABLE alteracao_consulta (
+    id                  SERIAL PRIMARY KEY,
+    consulta_id         INT             NOT NULL,
+    usuario_id          INT             NOT NULL,
+    tipo_alteracao      VARCHAR(50)     NOT NULL,
+    data_hora_anterior  TIMESTAMP,
+    data_hora_nova      TIMESTAMP,
+    motivo              TEXT,
+    alterado_em         TIMESTAMP       DEFAULT NOW(),
+    FOREIGN KEY (consulta_id)
+        REFERENCES consulta(id)
+        ON DELETE CASCADE
+        ON UPDATE CASCADE,
+    FOREIGN KEY (usuario_id)
+        REFERENCES profissional(id)
+        ON DELETE RESTRICT
+        ON UPDATE CASCADE
+)
+
+-- SELECT 1: Todos os pacientes
+SELECT * FROM paciente;
+
+-- SELECT 2: Todos os profissionais ativos
+SELECT * FROM profissional
+WHERE ativo = TRUE;
+
+-- SELECT 3: Todas as consultas agendadas
+SELECT * FROM consulta
+WHERE status = 'agendada';
+
+-- SELECT 4: Consultas com nome do paciente e profissional
+SELECT 
+    c.id,
+    p.nome AS paciente,
+    pr.nome AS profissional,
+    c.data_hora,
+    c.status,
+    c.modalidade
+FROM consulta c
+JOIN paciente p ON c.paciente_id = p.id
+JOIN profissional pr ON c.profissional_id = pr.id;
+
+-- SELECT 5: Prontuários com nome do paciente
+SELECT 
+    pron.id,
+    p.nome AS paciente,
+    pr.nome AS profissional,
+    pron.data_registro,
+    pron.queixa_principal,
+    pron.plano_tratamento
+FROM prontuario pron
+JOIN paciente p ON pron.paciente_id = p.id
+JOIN profissional pr ON pron.profissional_id = pr.id;
+
+-- SELECT 6: Disponibilidade dos profissionais
+SELECT 
+    pr.nome AS profissional,
+    d.dia_semana,
+    d.hora_inicio,
+    d.hora_fim
+FROM disponibilidade d
+JOIN profissional pr ON d.profissional_id = pr.id
+WHERE d.ativo = TRUE;
+
+-- SELECT 7: Histórico de alterações de consultas
+SELECT 
+    ac.id,
+    p.nome AS paciente,
+    ac.tipo_alteracao,
+    ac.data_hora_anterior,
+    ac.data_hora_nova,
+    ac.motivo,
+    ac.alterado_em
+FROM alteracao_consulta ac
+JOIN consulta c ON ac.consulta_id = c.id
+JOIN paciente p ON c.paciente_id = p.id;
